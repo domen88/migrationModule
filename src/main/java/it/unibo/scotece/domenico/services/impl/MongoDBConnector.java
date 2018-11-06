@@ -13,12 +13,12 @@ public class MongoDBConnector implements Connector {
     private List<MongoClient> cachedMongo = new ArrayList<>(1);
 
     public MongoDBConnector(){
-        this.mongo = connection(null);
+        this.mongo = createConnection(null);
         this.cachedMongo.add(this.mongo);
     }
 
     @Override
-    public MongoClient connection(Object[] args) {
+    public MongoClient createConnection(Object[] args) {
         //different host:port
         //var host = (String) args[0];
         if (this.cachedMongo.isEmpty()) {
@@ -30,9 +30,15 @@ public class MongoDBConnector implements Connector {
 
     }
 
+    @Override
+    public void closeConnection() {
+        this.cachedMongo.remove(this.mongo);
+        this.mongo.close();
+    }
+
     public MongoClient getConnection(){
         if (this.cachedMongo.isEmpty()) {
-            return connection(null);
+            return createConnection(null);
         } else {
             return this.cachedMongo.get(0);
         }
@@ -42,7 +48,7 @@ public class MongoDBConnector implements Connector {
         if (!this.cachedMongo.isEmpty()) {
             this.cachedMongo.remove(this.mongo);
         }
-        this.mongo = connection(args);
+        this.mongo = createConnection(args);
         this.cachedMongo.add(this.mongo);
         return this.mongo;
     }
