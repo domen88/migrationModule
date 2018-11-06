@@ -29,3 +29,6 @@ hs_err_pid*
 *.jpeg
 *.jpg
 *.png
+
+# MACOS Files
+.DS_STORE
