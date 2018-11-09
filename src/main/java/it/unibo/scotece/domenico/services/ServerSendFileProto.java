@@ -63,7 +63,7 @@ public class ServerSendFileProto {
 
             for (int i = 0; i < request.getFilesCount(); i++){
                 var file = request.getFiles(i);
-                var filename = file.getName() + ".archive";
+                var filename = file.getName();
                 try {
                     java.nio.file.Files.write(Paths.get(filename), file.getNameBytes().toByteArray());
                 } catch (IOException e) {
