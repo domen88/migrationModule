@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "it.unibo.scotece.domenico.services.protogen";
+option java_outer_classname = "GRPCSendFiles";
+
+package GRPCSendFiles;
+
+// The greeting service definition.
+service FileSend {
+  // Sends files
+  rpc Send (File) returns (Empty) {}
+  rpc SendMany (Files) returns (Empty) {}
+}
+
+// The request message
+message File {
+  bytes file = 1;
+  string name = 2;
+}
+
+message Files {
+  repeated File files = 1;
+}
+
+// The response message
+message Empty {
+  
+}

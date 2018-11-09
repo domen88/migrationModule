@@ -22,8 +22,7 @@ public class MongoDBConnector implements Connector {
         //different host:port
         //var host = (String) args[0];
         if (this.cachedMongo.isEmpty()) {
-            MongoClient mongoClient = MongoClients.create();
-            return mongoClient;
+            return MongoClients.create();
         } else {
             return this.cachedMongo.get(0);
         }

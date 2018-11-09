@@ -9,7 +9,7 @@ start = time.time()
 def main():
   #open Mongo connection
   conn = pymongo.MongoClient('localhost', 27017)
-  db = conn["null"]
+  db = conn["testdb"]
 
   for i in xrange(1000):
   	print "Collection number %d" % i

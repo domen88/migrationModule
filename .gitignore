@@ -32,3 +32,9 @@ hs_err_pid*
 
 # MACOS Files
 .DS_STORE
+
+# mongodb dump
+*.archive
+
+# target
+target/
