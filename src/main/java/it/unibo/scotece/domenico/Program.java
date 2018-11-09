@@ -14,6 +14,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -27,19 +28,24 @@ public class Program {
         var probability = new HashMap<String, Double>();
         var chart = new HashMap<Double, Double>();
         var tosend = new HashMap<String, Double>();
+        var hash = new HashMap<String, String>();
 
 
         MongoDBConnector mongo = new MongoDBConnector();
         MongoClient mongoClient = mongo.getConnection();
 
+        MongoDatabase database = mongoClient.getDatabase("testdb");
+
         /*-----Calcolo delle probabilità---*/
-        calculateProbability(mongoClient, access, faccess, invfreq, probability, chart);
+        //calculateProbability(mongoClient, access, faccess, invfreq, probability, chart);
 
         /*----Crea i dump----*/
-        createDumps(probability, tosend);
+        //createDumps(probability, tosend);
+        /*----Calcolo hash---*/
+        calculateHash(database, tosend, hash);
 
         /*----Invio i dump---*/
-        sendDumps(tosend);
+        //sendDumps(tosend);
 
         /*-----Stampa grafico---*/
         //createChart(chart);
@@ -55,11 +61,10 @@ public class Program {
         mongo.closeConnection();
     }
 
-    private static void calculateProbability(MongoClient mongoClient, HashMap<String, Integer> access, HashMap<String, Double> faccess,
+    private static void calculateProbability(MongoDatabase database, HashMap<String, Integer> access, HashMap<String, Double> faccess,
                         HashMap<String, Double> invfreq, HashMap<String, Double> probability, HashMap<Double, Double> chart){
 
         var counter = 0;
-        MongoDatabase database = mongoClient.getDatabase("testdb");
 
         for (String name : database.listCollectionNames()) {
             Document stats = database.runCommand(new Document("collStats", name));
@@ -126,6 +131,29 @@ public class Program {
             clientProto.sendFiles();
         } finally {
             clientProto.shutdown();
+        }
+    }
+
+    private static void calculateHash(MongoDatabase database, HashMap<String, Double> tosend, HashMap<String, String> hash){
+        Document command = new Document();
+        command.put("dbHash", 1);
+        var collections = new ArrayList<String>();
+       /* for (var p : tosend.entrySet()){
+            collections.add(p.getKey());
+        }*/
+        collections.add("collect123");
+        collections.add("collect133");
+        collections.add("collect143");
+        command.put("collections", collections);
+        Document collStatsResults = database.runCommand(command);
+
+        for (var set : collStatsResults.entrySet()) {
+            if (set.getKey().equals("collections")){
+                var value = (Map<String,Object>) set.getValue();
+                for (var set1 : value.entrySet()) {
+                    hash.put(set1.getKey(), (String) set1.getValue());
+                }
+            }
         }
     }
 
