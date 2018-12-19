@@ -1,34 +1,75 @@
 package it.unibo.scotece.domenico;
 
+import com.google.common.collect.ImmutableSet;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.spotify.docker.client.DockerClient;
+import com.spotify.docker.client.exceptions.DockerCertificateException;
+import com.spotify.docker.client.exceptions.DockerException;
+import com.spotify.docker.client.messages.ContainerConfig;
+import com.spotify.docker.client.messages.ContainerCreation;
+import com.spotify.docker.client.messages.ContainerExit;
+import com.spotify.docker.client.messages.HostConfig;
 import it.unibo.scotece.domenico.services.ClientSendFileProto;
+import it.unibo.scotece.domenico.services.impl.DockerConnectImpl;
 import it.unibo.scotece.domenico.services.impl.MongoDBConnector;
 import it.unibo.scotece.domenico.utils.LineChartAWT;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveOutputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import org.bson.Document;
 import org.jfree.ui.RefineryUtilities;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.*;
+
+import static java.lang.System.exit;
 
 public class Program {
 
-    public static void main(String[] args) throws IOException, ExecutionException, InterruptedException {
+    public static void main(String[] args) throws IOException, ExecutionException, InterruptedException, DockerCertificateException, DockerException {
         var access = new HashMap<String, Integer>();
         var faccess = new HashMap<String, Double>();
         var invfreq = new HashMap<String, Double>();
         var probability = new HashMap<String, Double>();
         var chart = new HashMap<Double, Double>();
+        var dbcollections = new HashMap<String, Double>();
         var tosend = new HashMap<String, Double>();
+        var residual = new HashMap<String, Double>();
         var hash = new HashMap<String, String>();
+
+
+        /**-----------REACTIVE----------**/
+        //Current docker connector
+        /*DockerConnectImpl currentDockerConnector =  new DockerConnectImpl();
+        DockerClient docker = currentDockerConnector.setConnection();
+        //System.out.println("docker info "  + docker.info());
+        Instant start = Instant.now();
+        //exportContainer(docker, "dbdata");
+        Instant stop = Instant.now();
+        System.out.println("DURATION: exportContainer Procedure "  + Duration.between(start, stop));
+        start = Instant.now();
+        sendDump("backup.tar");
+        stop = Instant.now();
+        System.out.println("DURATION: sendDump Procedure "  + Duration.between(start, stop));
+        currentDockerConnector.close();*/
+
+
+        Instant start = Instant.now();
+        Instant stop = Instant.now();
 
 
         MongoDBConnector mongo = new MongoDBConnector();
@@ -37,39 +78,205 @@ public class Program {
         MongoDatabase database = mongoClient.getDatabase("testdb");
 
         /*-----Calcolo delle probabilità---*/
-        //calculateProbability(mongoClient, access, faccess, invfreq, probability, chart);
+        start = Instant.now();
+        calculateProbability(database, access, faccess, invfreq, probability, chart, dbcollections);
+        stop = Instant.now();
+        System.out.println("DURATION: calculateProbability Procedure "  + Duration.between(start, stop));
 
         /*----Crea i dump----*/
-        //createDumps(probability, tosend);
-        /*----Calcolo hash---*/
-        calculateHash(database, tosend, hash);
+        start = Instant.now();
+        createDumps(probability, tosend);
+        stop = Instant.now();
+        System.out.println("DURATION: createDumps Procedure "  + Duration.between(start, stop));
 
-        /*----Invio i dump---*/
-        //sendDumps(tosend);
+        /*----Calcolo hash---*/
+        start = Instant.now();
+        calculateHash(database, tosend, hash);
+        stop = Instant.now();
+        System.out.println("DURATION: calculateHash (PROACTIVE) Procedure "  + Duration.between(start, stop));
+        /*----Invia hash---*/
+        start = Instant.now();
+        sendHash(hash);
+        stop = Instant.now();
+        System.out.println("DURATION: sendHash (PROACTIVE)  Procedure "  + Duration.between(start, stop));
+
+        /*----Creo archivio---*/
+        start = Instant.now();
+        var filename = "archivep.tar";
+        createTar(tosend, filename);
+        stop = Instant.now();
+        System.out.println("DURATION: createTar (PROACTIVE) Procedure "  + Duration.between(start, stop));
+        /*----Invio i dumps---*/
+        start = Instant.now();
+        sendDump(filename);
+        stop = Instant.now();
+        System.out.println("DURATION: sendDumps (PROACTIVE) Procedure "  + Duration.between(start, stop));
+
+
+        /*---DataBase Dump Unico---*/
+        /*start = Instant.now();
+        createDump();
+        stop = Instant.now();
+        System.out.println("DURATION: createDump REACTIVE APPLICATION AGNOSTIC "  + Duration.between(start, stop));
+        var dumpmap = new HashMap<String, Double>();
+        dumpmap.put("testdb1", Double.valueOf(1));
+        start = Instant.now();
+        createTar(dumpmap, "archive.tar");
+        stop = Instant.now();
+        System.out.println("DURATION: createTar REACTIVE APPLICATION AGNOSTIC "  + Duration.between(start, stop));
+        start = Instant.now();
+        sendDump("archive.tar");
+        stop = Instant.now();
+        System.out.println("DURATION: sendDump REACTIVE APPLICATION AGNOSTIC "  + Duration.between(start, stop));*/
+
+        /*----Invio dump----*/
+        //sendDump("testdb.archive");
 
         /*-----Stampa grafico---*/
         //createChart(chart);
 
-        /*---DataBase Dump---*/
-//        System.out.println("CREATE DUMP!!!");
-//        var p = Runtime.getRuntime().exec(new String[]{"sh", "-c", "mongodump --db testdb --archive=testdb.archive"});
-//        p.waitFor();
-//        System.out.println("DUMP FINISHED!!!");
-        //var future = p.onExit();
-        //future.get();
+        /*---HANDOFF---*/
+        Thread.sleep(60000);
+        System.out.println("HANDOFF SIGNAL!!!");
+
+        start = Instant.now();
+        createResidualCollectionsDump(dbcollections, tosend, residual);
+        stop = Instant.now();
+        System.out.println("DURATION: createResidualCollectionsDump (REACTIVE) Procedure "  + Duration.between(start, stop));
+
+        start = Instant.now();
+        createDumps(residual);
+        stop = Instant.now();
+        System.out.println("DURATION: createResidualDumps (REACTIVE) Procedure "  + Duration.between(start, stop));
+
+        start = Instant.now();
+        calculateHash(database, dbcollections, hash);
+        stop = Instant.now();
+        System.out.println("DURATION: calculateAllHash (REACTIVE) Procedure "  + Duration.between(start, stop));
+
+        start = Instant.now();
+        sendHash(hash);
+        stop = Instant.now();
+        System.out.println("DURATION: sendAllHash (REACTIVE) Procedure "  + Duration.between(start, stop));
+
+        /*----Creo archivio---*/
+        start = Instant.now();
+        filename = "archiver.tar";
+        createTar(residual, filename);
+        stop = Instant.now();
+        System.out.println("DURATION: createTar (REACTIVE) Procedure "  + Duration.between(start, stop));
+        /*----Invio i dumps---*/
+        start = Instant.now();
+        sendDump(filename);
+        stop = Instant.now();
+        System.out.println("DURATION: sendDumps (REACTIVE) Procedure "  + Duration.between(start, stop));
+
+        Thread.sleep(60000);
+
+        start = Instant.now();
+        sendResidualCollectionsDump(residual);
+        stop = Instant.now();
+        System.out.println("DURATION: sendResidualCollectionsDump Procedure "  + Duration.between(start, stop));
+
+
+
+        /*-----CALCOLO MISS------*/
+        var percentage = 0.25;
+        var hit = tosend.size() * percentage;
+        var i = 0;
+        var hitcoll = new HashMap<String, Double>();
+
+        for (var s : tosend.entrySet()){
+            if (i>hit) break;
+            hitcoll.put(s.getKey(), s.getValue());
+            i++;
+        }
+
+        start = Instant.now();
+        createDumps(hitcoll);
+        stop = Instant.now();
+        System.out.println("DURATION: createDumps (CALCOLO MISS) Procedure "  + Duration.between(start, stop));
+
+        /*----Creo archivio---*/
+        start = Instant.now();
+        filename = "archivem.tar";
+        createTar(hitcoll, filename);
+        stop = Instant.now();
+        System.out.println("DURATION: createTar (CALCOLO MISS) Procedure "  + Duration.between(start, stop));
+        /*----Invio i dumps---*/
+        start = Instant.now();
+        sendDump(filename);
+        stop = Instant.now();
+        System.out.println("DURATION: sendDumps (CALCOLO MISS) Procedure "  + Duration.between(start, stop));
+
 
         mongo.closeConnection();
+
+
+    }
+
+    private static void exportContainer(DockerClient docker, String volumesFrom) throws DockerException, InterruptedException, ExecutionException {
+        //Pull latest ubuntu images from docker hub
+        docker.pull("busybox:latest");
+
+        final String currentUsersHomeDir = Paths.get(".").toAbsolutePath().normalize().toString();
+
+        HostConfig hostConfig = HostConfig.builder()
+                .autoRemove(Boolean.TRUE)
+                .volumesFrom(volumesFrom)
+                .binds(HostConfig.Bind.from(currentUsersHomeDir).to("/backup").build())
+                .build();
+
+        //Configuration of Container Data Volume
+        final ContainerConfig containerConfig = ContainerConfig.builder()
+                .image("busybox")
+                .hostConfig(hostConfig)
+                .cmd("tar", "cvf", "/backup/backup.tar", "/data/db")
+                .build();
+        //Create Container Data Volume
+        final ContainerCreation container = docker.createContainer(containerConfig, "dbBackup");
+
+        docker.startContainer(container.id());
+
+        Callable<ContainerExit> task = () -> {
+            try {
+                return docker.waitContainer(container.id());
+            }
+            catch (InterruptedException e) {
+                throw new IllegalStateException("task interrupted", e);
+            }
+        };
+
+        ExecutorService executor = Executors.newFixedThreadPool(1);
+        Future<ContainerExit> future = executor.submit(task);
+
+        ContainerExit result = future.get();
+
+        System.out.println(result.statusCode());
+
     }
 
     private static void calculateProbability(MongoDatabase database, HashMap<String, Integer> access, HashMap<String, Double> faccess,
-                        HashMap<String, Double> invfreq, HashMap<String, Double> probability, HashMap<Double, Double> chart){
+                        HashMap<String, Double> invfreq, HashMap<String, Double> probability, HashMap<Double, Double> chart, HashMap<String, Double> dbcollections){
 
         var counter = 0;
+        var i = 0;
 
         for (String name : database.listCollectionNames()) {
+            dbcollections.put(name, (double) i++);
             Document stats = database.runCommand(new Document("collStats", name));
 
+            /*-------VERSIONE BASATA SUI COUNT-----*/
             for (var set : stats.entrySet()) {
+                if (set.getKey().equals("count")){
+                    var value = (Integer) set.getValue();
+                    access.put(name, value);
+                    counter+=value;
+                }
+            }
+
+            /*-------VERSIONE BASATA SUGLI ACCESSI-----*/
+            /*for (var set : stats.entrySet()) {
                 if (set.getKey().equals("wiredTiger")){
                     var value = (Map<String,Object>) set.getValue();
                     for (var set1 : value.entrySet()) {
@@ -84,7 +291,7 @@ public class Program {
                         }
                     }
                 }
-            }
+            }*/
         }
 
         for (var acc : access.entrySet()){
@@ -103,7 +310,7 @@ public class Program {
             /*---Calcolo della probabilità di migrazione---*/
             double p = n.cumulativeProbability(freq.getValue());
             probability.put(freq.getKey(), p);
-            chart.put(1/freq.getValue(), p);
+            chart.put(faccess.get(freq.getKey()), p);
             System.out.println(freq.getKey() + " : " + p);
         }
 
@@ -112,7 +319,8 @@ public class Program {
     }
 
     private static void createDumps(HashMap<String, Double> probability, HashMap<String, Double> tosend) throws IOException, InterruptedException {
-        double threshold = 0.7;
+        double threshold = 0.45;
+        System.out.println("Create dump PROACTIVE");
         for (var p : probability.entrySet()){
             if (p.getValue()>=threshold){
                 tosend.put(p.getKey(), p.getValue());
@@ -125,8 +333,19 @@ public class Program {
         }
     }
 
-    private static void sendDumps(HashMap<String, Double> tosend) throws IOException, InterruptedException {
-        var clientProto = new ClientSendFileProto("192.168.2.14", 9000, tosend);
+    private static void createDumps(HashMap<String, Double> tosend) throws IOException, InterruptedException {
+        System.out.println("Create dump REACTIVE");
+        for (var t : tosend.entrySet()){
+            //System.out.println("Create dump for collection " + t.getKey());
+            var process = Runtime.getRuntime().exec(new String[]{"sh", "-c", "mongodump --db testdb --collection " +
+                    t.getKey() + " --archive="+t.getKey()+".archive"});
+            process.waitFor();
+            //System.out.println("Dump finished");
+        }
+    }
+
+    private static void sendDumps(HashMap<String, Double> tosend, HashMap<String, String> hash) throws IOException, InterruptedException {
+        var clientProto = new ClientSendFileProto("192.168.2.14", 9000, tosend, hash);
         try {
             clientProto.sendFiles();
         } finally {
@@ -134,16 +353,48 @@ public class Program {
         }
     }
 
+    private static void createDump() throws IOException, InterruptedException {
+        System.out.println("CREATE DUMP!!!");
+        var p = Runtime.getRuntime().exec(new String[]{"sh", "-c", "mongodump --db testdb --archive=testdb1.archive"});
+        p.waitFor();
+        System.out.println("DUMP FINISHED!!!");
+    }
+
+    private static void sendDump(String filename) throws IOException, InterruptedException {
+        var clientProto = new ClientSendFileProto("192.168.2.14", 9000);
+        try {
+            clientProto.sendChunkFile(filename);
+        } finally {
+            clientProto.shutdown();
+        }
+    }
+
+    private static void createResidualCollectionsDump(HashMap<String, Double> dbcollections, HashMap<String, Double> tosend, HashMap<String, Double> residual){
+        Double i = Double.valueOf(0);
+        for (var set : dbcollections.entrySet()){
+                if (!tosend.containsKey(set.getKey())){
+                    residual.put(set.getKey(), i++);
+                }
+            }
+    }
+
+    private static void sendResidualCollectionsDump(HashMap<String, Double> residual) throws IOException, InterruptedException {
+        var clientProto = new ClientSendFileProto("192.168.2.14", 9000, residual, null);
+        try {
+            clientProto.sendResidualFiles();
+        } finally {
+            clientProto.shutdown();
+        }
+
+    }
+
     private static void calculateHash(MongoDatabase database, HashMap<String, Double> tosend, HashMap<String, String> hash){
         Document command = new Document();
         command.put("dbHash", 1);
         var collections = new ArrayList<String>();
-       /* for (var p : tosend.entrySet()){
+        for (var p : tosend.entrySet()){
             collections.add(p.getKey());
-        }*/
-        collections.add("collect123");
-        collections.add("collect133");
-        collections.add("collect143");
+        }
         command.put("collections", collections);
         Document collStatsResults = database.runCommand(command);
 
@@ -154,6 +405,15 @@ public class Program {
                     hash.put(set1.getKey(), (String) set1.getValue());
                 }
             }
+        }
+    }
+
+    private static void sendHash(HashMap<String, String> hash) throws InterruptedException {
+        var clientProto = new ClientSendFileProto("192.168.2.14", 9000, hash);
+        try {
+            clientProto.sendHash();
+        } finally {
+            clientProto.shutdown();
         }
     }
 
@@ -181,5 +441,27 @@ public class Program {
         graf.pack();
         RefineryUtilities.centerFrameOnScreen(graf);
         graf.setVisible(true);
+    }
+
+    private static void createTar(HashMap<String, Double> tosend, String archivename) throws IOException {
+        OutputStream fo = java.nio.file.Files.newOutputStream(Paths.get(archivename));
+        ArchiveOutputStream archive = new TarArchiveOutputStream(fo);
+
+        for (var set : tosend.entrySet()){
+            var filename = set.getKey() + ".archive";
+            Path path = Paths.get(filename);
+            var file = path.toFile();
+            ArchiveEntry entry = archive.createArchiveEntry(file, filename);
+            archive.putArchiveEntry(entry);
+            if (file.isFile()){
+                try (InputStream i = java.nio.file.Files.newInputStream(file.toPath())){
+                    IOUtils.copy(i, archive);
+                }
+            }
+            archive.closeArchiveEntry();
+        }
+        archive.finish();
+        fo.close();
+
     }
 }

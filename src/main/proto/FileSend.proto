@@ -10,17 +10,34 @@ package GRPCSendFiles;
 service FileSend {
   // Sends files
   rpc Send (File) returns (Empty) {}
+  rpc SendChunks (stream FileChunk) returns (Empty) {}
   rpc SendMany (Files) returns (Empty) {}
+  rpc SendHash (HashCollections) returns (Empty) {}
 }
 
 // The request message
 message File {
   bytes file = 1;
   string name = 2;
+  string hash = 3;
+}
+
+message FileChunk {
+  bytes chunk = 1;
+  string name = 2;
 }
 
 message Files {
   repeated File files = 1;
+}
+
+message HashCollection {
+  string name = 1;
+  string hash = 2;
+}
+
+message HashCollections {
+  repeated HashCollection hcollections = 1;
 }
 
 // The response message
