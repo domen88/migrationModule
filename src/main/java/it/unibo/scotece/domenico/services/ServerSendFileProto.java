@@ -22,8 +22,9 @@ public class ServerSendFileProto {
     private static Map<String, String> hash;
     private static Map<String, String> hashcollections;
     private static String filename;
+    private static String userpath;
 
-    public void start() throws IOException {
+    public void start(String user) throws IOException {
         /* The port on which the server should run */
         int port = 9000;
         var filesendimpl = new FileSendImpl();
@@ -35,6 +36,7 @@ public class ServerSendFileProto {
 
         hash = new HashMap<>();
         hashcollections = new HashMap<>();
+        userpath = "/home/" + user + "/rec";
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -84,9 +86,10 @@ public class ServerSendFileProto {
 
             var file = request.getFile();
             var filename = request.getName();
+            final String currentUsersHomeDir = Paths.get(ServerSendFileProto.userpath).toAbsolutePath().normalize().toString() + "/";
 
             try {
-                java.nio.file.Files.write(Paths.get(filename), file.toByteArray());
+                java.nio.file.Files.write(Paths.get(currentUsersHomeDir+filename), file.toByteArray());
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -106,8 +109,9 @@ public class ServerSendFileProto {
 
                 @Override
                 public void onNext(FileChunk value) {
-                    var filename = value.getName();
-                    Path filepath = Paths.get(filename);
+                    var filename = "backup1.tar";
+                    final String currentUsersHomeDir = Paths.get(ServerSendFileProto.userpath).toAbsolutePath().normalize().toString() + "/";
+                    Path filepath = Paths.get(currentUsersHomeDir + "/knowledge1/" + filename);
                     ServerSendFileProto.filename = filename;
                     System.out.println("Ricevuto pezzo di file: " + value.getName());
                     try {

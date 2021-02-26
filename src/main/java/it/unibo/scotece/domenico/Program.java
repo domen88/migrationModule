@@ -5,6 +5,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.spotify.docker.client.DockerClient;
+import com.spotify.docker.client.exceptions.ContainerNotFoundException;
 import com.spotify.docker.client.exceptions.DockerCertificateException;
 import com.spotify.docker.client.exceptions.DockerException;
 import com.spotify.docker.client.messages.ContainerConfig;
@@ -50,24 +51,33 @@ public class Program {
         var tosend = new HashMap<String, Double>();
         var residual = new HashMap<String, Double>();
         var hash = new HashMap<String, String>();
+        //User
+        if (args.length <= 0){
+            System.out.println("Usage jar [user]");
+            System.exit(0);
+        }
+        final String user = args[0];
 
 
         /**-----------REACTIVE----------**/
         //Current docker connector
-        /*DockerConnectImpl currentDockerConnector =  new DockerConnectImpl();
+        DockerConnectImpl currentDockerConnector =  new DockerConnectImpl();
         DockerClient docker = currentDockerConnector.setConnection();
         //System.out.println("docker info "  + docker.info());
         Instant start = Instant.now();
-        //exportContainer(docker, "dbdata");
+        exportContainer(docker, "dbdata", user);
         Instant stop = Instant.now();
         System.out.println("DURATION: exportContainer Procedure "  + Duration.between(start, stop));
         start = Instant.now();
-        sendDump("backup.tar");
+        sendDump("backup.tar", user);
         stop = Instant.now();
         System.out.println("DURATION: sendDump Procedure "  + Duration.between(start, stop));
-        currentDockerConnector.close();*/
+        currentDockerConnector.close();
 
+        System.exit(0);
 
+        /**---------PROACTIVE----------**/
+        /*
         Instant start = Instant.now();
         Instant stop = Instant.now();
 
@@ -75,42 +85,42 @@ public class Program {
         MongoDBConnector mongo = new MongoDBConnector();
         MongoClient mongoClient = mongo.getConnection();
 
-        MongoDatabase database = mongoClient.getDatabase("testdb");
+        MongoDatabase database = mongoClient.getDatabase("testdb"); */
 
         /*-----Calcolo delle probabilità---*/
-        start = Instant.now();
-        calculateProbability(database, access, faccess, invfreq, probability, chart, dbcollections);
-        stop = Instant.now();
-        System.out.println("DURATION: calculateProbability Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //calculateProbability(database, access, faccess, invfreq, probability, chart, dbcollections);
+        //stop = Instant.now();
+        //System.out.println("DURATION: calculateProbability Procedure "  + Duration.between(start, stop));
 
         /*----Crea i dump----*/
-        start = Instant.now();
-        createDumps(probability, tosend);
-        stop = Instant.now();
-        System.out.println("DURATION: createDumps Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //createDumps(probability, tosend);
+        //stop = Instant.now();
+        //System.out.println("DURATION: createDumps Procedure "  + Duration.between(start, stop));
 
         /*----Calcolo hash---*/
-        start = Instant.now();
-        calculateHash(database, tosend, hash);
-        stop = Instant.now();
-        System.out.println("DURATION: calculateHash (PROACTIVE) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //calculateHash(database, tosend, hash);
+        //stop = Instant.now();
+        //System.out.println("DURATION: calculateHash (PROACTIVE) Procedure "  + Duration.between(start, stop));
         /*----Invia hash---*/
-        start = Instant.now();
-        sendHash(hash);
-        stop = Instant.now();
-        System.out.println("DURATION: sendHash (PROACTIVE)  Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //sendHash(hash);
+        //stop = Instant.now();
+        //System.out.println("DURATION: sendHash (PROACTIVE)  Procedure "  + Duration.between(start, stop));
 
         /*----Creo archivio---*/
-        start = Instant.now();
-        var filename = "archivep.tar";
-        createTar(tosend, filename);
-        stop = Instant.now();
-        System.out.println("DURATION: createTar (PROACTIVE) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //var filename = "archivep.tar";
+        //createTar(tosend, filename);
+        //stop = Instant.now();
+        //System.out.println("DURATION: createTar (PROACTIVE) Procedure "  + Duration.between(start, stop));
         /*----Invio i dumps---*/
-        start = Instant.now();
-        sendDump(filename);
-        stop = Instant.now();
-        System.out.println("DURATION: sendDumps (PROACTIVE) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //sendDump(filename);
+        //stop = Instant.now();
+        //System.out.println("DURATION: sendDumps (PROACTIVE) Procedure "  + Duration.between(start, stop));
 
 
         /*---DataBase Dump Unico---*/
@@ -136,52 +146,52 @@ public class Program {
         //createChart(chart);
 
         /*---HANDOFF---*/
-        Thread.sleep(60000);
-        System.out.println("HANDOFF SIGNAL!!!");
+        //Thread.sleep(60000);
+        //System.out.println("HANDOFF SIGNAL!!!");
 
-        start = Instant.now();
-        createResidualCollectionsDump(dbcollections, tosend, residual);
-        stop = Instant.now();
-        System.out.println("DURATION: createResidualCollectionsDump (REACTIVE) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //createResidualCollectionsDump(dbcollections, tosend, residual);
+        //stop = Instant.now();
+        //System.out.println("DURATION: createResidualCollectionsDump (REACTIVE) Procedure "  + Duration.between(start, stop));
 
-        start = Instant.now();
-        createDumps(residual);
-        stop = Instant.now();
-        System.out.println("DURATION: createResidualDumps (REACTIVE) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //createDumps(residual);
+        //stop = Instant.now();
+        //System.out.println("DURATION: createResidualDumps (REACTIVE) Procedure "  + Duration.between(start, stop));
 
-        start = Instant.now();
-        calculateHash(database, dbcollections, hash);
-        stop = Instant.now();
-        System.out.println("DURATION: calculateAllHash (REACTIVE) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //calculateHash(database, dbcollections, hash);
+        //stop = Instant.now();
+        //System.out.println("DURATION: calculateAllHash (REACTIVE) Procedure "  + Duration.between(start, stop));
 
-        start = Instant.now();
-        sendHash(hash);
-        stop = Instant.now();
-        System.out.println("DURATION: sendAllHash (REACTIVE) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //sendHash(hash);
+        //stop = Instant.now();
+        //System.out.println("DURATION: sendAllHash (REACTIVE) Procedure "  + Duration.between(start, stop));
 
         /*----Creo archivio---*/
-        start = Instant.now();
-        filename = "archiver.tar";
-        createTar(residual, filename);
-        stop = Instant.now();
-        System.out.println("DURATION: createTar (REACTIVE) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //filename = "archiver.tar";
+        //createTar(residual, filename);
+        //stop = Instant.now();
+        //System.out.println("DURATION: createTar (REACTIVE) Procedure "  + Duration.between(start, stop));
         /*----Invio i dumps---*/
-        start = Instant.now();
-        sendDump(filename);
-        stop = Instant.now();
-        System.out.println("DURATION: sendDumps (REACTIVE) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //sendDump(filename);
+        //stop = Instant.now();
+        //System.out.println("DURATION: sendDumps (REACTIVE) Procedure "  + Duration.between(start, stop));
 
-        Thread.sleep(60000);
+        //Thread.sleep(60000);
 
-        start = Instant.now();
-        sendResidualCollectionsDump(residual);
-        stop = Instant.now();
-        System.out.println("DURATION: sendResidualCollectionsDump Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //sendResidualCollectionsDump(residual);
+        //stop = Instant.now();
+        //System.out.println("DURATION: sendResidualCollectionsDump Procedure "  + Duration.between(start, stop));
 
 
 
         /*-----CALCOLO MISS------*/
-        var percentage = 0.25;
+        /*var percentage = 0.25;
         var hit = tosend.size() * percentage;
         var i = 0;
         var hitcoll = new HashMap<String, Double>();
@@ -191,68 +201,88 @@ public class Program {
             hitcoll.put(s.getKey(), s.getValue());
             i++;
         }
+        */
 
-        start = Instant.now();
-        createDumps(hitcoll);
-        stop = Instant.now();
-        System.out.println("DURATION: createDumps (CALCOLO MISS) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //createDumps(hitcoll);
+        //stop = Instant.now();
+        //System.out.println("DURATION: createDumps (CALCOLO MISS) Procedure "  + Duration.between(start, stop));
 
         /*----Creo archivio---*/
-        start = Instant.now();
-        filename = "archivem.tar";
-        createTar(hitcoll, filename);
-        stop = Instant.now();
-        System.out.println("DURATION: createTar (CALCOLO MISS) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //filename = "archivem.tar";
+        //createTar(hitcoll, filename);
+        //stop = Instant.now();
+        //System.out.println("DURATION: createTar (CALCOLO MISS) Procedure "  + Duration.between(start, stop));
         /*----Invio i dumps---*/
-        start = Instant.now();
-        sendDump(filename);
-        stop = Instant.now();
-        System.out.println("DURATION: sendDumps (CALCOLO MISS) Procedure "  + Duration.between(start, stop));
+        //start = Instant.now();
+        //sendDump(filename);
+        //stop = Instant.now();
+        //System.out.println("DURATION: sendDumps (CALCOLO MISS) Procedure "  + Duration.between(start, stop));
 
 
-        mongo.closeConnection();
+        //mongo.closeConnection();
 
 
     }
 
-    private static void exportContainer(DockerClient docker, String volumesFrom) throws DockerException, InterruptedException, ExecutionException {
+    private static void exportContainer(DockerClient docker) throws DockerException, InterruptedException, IOException {
+        var id = "05e0330e3323";
+
+        OutputStream fo = java.nio.file.Files.newOutputStream(Paths.get("exp.tar"));
+        ArchiveOutputStream archive = new TarArchiveOutputStream(fo);
+
+
+
+        ImmutableSet.Builder<String> files = ImmutableSet.builder();
+        try (TarArchiveInputStream tarStream = new TarArchiveInputStream(docker.exportContainer(id))) {
+            TarArchiveEntry entry;
+            while ((entry = tarStream.getNextTarEntry()) != null) {
+                files.add(entry.getName());
+            }
+        }
+
+       /* try (TarArchiveInputStream tarStream = new TarArchiveInputStream(docker.exportContainer(id))) {
+            TarArchiveEntry entry;
+            while ((entry = tarStream.getNextTarEntry()) != null) {
+                //ArchiveEntry entryArchive = archive.createArchiveEntry(entry.getFile(), entry.getName());
+                //archive.putArchiveEntry(entryArchive);
+                //archive.closeArchiveEntry();
+            }
+        }
+        archive.finish();*/
+        fo.close();
+
+    }
+
+    private static void exportContainer(DockerClient docker, String volumesFrom, String user) throws DockerException, InterruptedException, IOException {
         //Pull latest ubuntu images from docker hub
         docker.pull("busybox:latest");
-
-        final String currentUsersHomeDir = Paths.get(".").toAbsolutePath().normalize().toString();
-
+        String userpath = "/home/" + user + "/rec";
+        String currentUsersHomeDir = Paths.get(userpath).toAbsolutePath().normalize().toString();
         HostConfig hostConfig = HostConfig.builder()
                 .autoRemove(Boolean.TRUE)
-                .volumesFrom(volumesFrom)
-                .binds(HostConfig.Bind.from(currentUsersHomeDir).to("/backup").build())
+                .binds(new HostConfig.Bind[] { HostConfig.Bind.from(currentUsersHomeDir).to("/backup").build() })
                 .build();
 
         //Configuration of Container Data Volume
-        final ContainerConfig containerConfig = ContainerConfig.builder()
-                .image("busybox")
-                .hostConfig(hostConfig)
-                .cmd("tar", "cvf", "/backup/backup.tar", "/data/db")
-                .build();
-        //Create Container Data Volume
-        final ContainerCreation container = docker.createContainer(containerConfig, "dbBackup");
+        final ContainerConfig containerConfig = ContainerConfig.builder().image("busybox").hostConfig(hostConfig).cmd(new String[] { "tar", "cvf", "/backup/backup.tar", "/backup/knowledge"}).build();
 
+        //Create Container Data Volume
+        ContainerCreation container = docker.createContainer(containerConfig, "dbBackup");
         docker.startContainer(container.id());
 
-        Callable<ContainerExit> task = () -> {
-            try {
-                return docker.waitContainer(container.id());
-            }
-            catch (InterruptedException e) {
-                throw new IllegalStateException("task interrupted", e);
-            }
-        };
+        try{
+            docker.waitContainer(container.id());
+        } catch (ContainerNotFoundException e){
+            System.out.println("Container exit!");
+        }
 
-        ExecutorService executor = Executors.newFixedThreadPool(1);
-        Future<ContainerExit> future = executor.submit(task);
+        /*---REMOVE FILES---*/
+        Process process = Runtime.getRuntime().exec(new String[]{"sh", "-c", "rm -f " + currentUsersHomeDir +"/knowledge/*.png"});
+        process.waitFor();
+        System.out.println("Files removed");
 
-        ContainerExit result = future.get();
-
-        System.out.println(result.statusCode());
 
     }
 
@@ -260,6 +290,7 @@ public class Program {
                         HashMap<String, Double> invfreq, HashMap<String, Double> probability, HashMap<Double, Double> chart, HashMap<String, Double> dbcollections){
 
         var counter = 0;
+        var ok = 0;
         var i = 0;
 
         for (String name : database.listCollectionNames()) {
@@ -298,10 +329,14 @@ public class Program {
             /*---Calcolo frequenza di accesso---*/
             Double f = (double)acc.getValue()/counter;
             faccess.put(acc.getKey(), f*100);
+            System.out.println("Calcolo frequenza di accesso");
+            //System.out.println(acc.getKey() + " : " + f*100);
 
             /*---Calcolo inverso della frequenza---*/
             Double inv = 1/f;
             invfreq.put(acc.getKey(), inv);
+            System.out.println("Calcolo inverso della frequenza");
+            //System.out.println(acc.getKey() + " : " + inv);
 
         }
 
@@ -311,10 +346,12 @@ public class Program {
             double p = n.cumulativeProbability(freq.getValue());
             probability.put(freq.getKey(), p);
             chart.put(faccess.get(freq.getKey()), p);
+            if (p > 0.45) ok++;
             System.out.println(freq.getKey() + " : " + p);
         }
 
         System.out.println("Totale Operazioni: " + counter);
+        System.out.println("Totale OK: " + ok);
 
     }
 
@@ -360,10 +397,10 @@ public class Program {
         System.out.println("DUMP FINISHED!!!");
     }
 
-    private static void sendDump(String filename) throws IOException, InterruptedException {
-        var clientProto = new ClientSendFileProto("192.168.2.14", 9000);
+    private static void sendDump(String filename, String user) throws IOException, InterruptedException {
+        var clientProto = new ClientSendFileProto("10.0.0.4", 9000);
         try {
-            clientProto.sendChunkFile(filename);
+            clientProto.sendChunkFile(filename, user);
         } finally {
             clientProto.shutdown();
         }

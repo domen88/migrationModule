@@ -32,7 +32,7 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
-                                        <Main-Class>it.unibo.scotece.domenico.Program</Main-Class>
+                                        <Main-Class>it.unibo.scotece.domenico.Server</Main-Class>
                                         <Build-Number>1</Build-Number>
                                     </manifestEntries>
                                 </transformer>
@@ -120,7 +120,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
-            <version>1.18</version>
+            <version>1.19</version>
         </dependency>
         <dependency>
             <groupId>com.spotify</groupId>
@@ -130,5 +130,5 @@
         </dependency>
     </dependencies>
 
-    
+
 </project>

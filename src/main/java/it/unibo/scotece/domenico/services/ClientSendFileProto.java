@@ -130,7 +130,7 @@ public class ClientSendFileProto {
         }
     }
 
-    public void sendChunkFile(String filename) throws IOException, InterruptedException {
+    public void sendChunkFile(String filename, String user) throws IOException, InterruptedException {
         final CountDownLatch finishLatch = new CountDownLatch(1);
 
         StreamObserver<Empty> responseObserver = new StreamObserver<Empty>() {
@@ -155,13 +155,16 @@ public class ClientSendFileProto {
         StreamObserver<FileChunk> requestObserver = asyncStub.sendChunks(responseObserver);
 
         var filechunk = FileChunk.newBuilder();
+        final String userpath = "/home/" + user + "/rec";
+        final String currentUsersHomeDir = Paths.get(userpath).toAbsolutePath().normalize().toString() + "/";
         //var file = java.nio.file.Files.readAllBytes(Paths.get(filename));
+        //filename = "backup1.tar";
 
         final int BUFFER_SIZE = 50*1024*1024;
-        FileInputStream fis = new FileInputStream(filename);
+        FileInputStream fis = new FileInputStream(currentUsersHomeDir+filename);
         byte[] buffer = new byte[BUFFER_SIZE];
         int read = 0;
-        System.out.println("Invio File");
+        System.out.println("Invio File: " + filename);
         try {
 
             while( ( read = fis.read(buffer) ) > 0 ) {
@@ -195,7 +198,7 @@ public class ClientSendFileProto {
         requestObserver.onCompleted();
 
         // Receiving happens asynchronously
-        if (!finishLatch.await(10, TimeUnit.MINUTES)) {
+        if (!finishLatch.await(60, TimeUnit.MINUTES)) {
             System.out.println("recordRoute can not finish within 10 minutes");
         }
 

@@ -1,6 +1,7 @@
 package it.unibo.scotece.domenico;
 
 import com.spotify.docker.client.DockerClient;
+import com.spotify.docker.client.exceptions.ContainerNotFoundException;
 import com.spotify.docker.client.exceptions.DockerCertificateException;
 import com.spotify.docker.client.exceptions.DockerException;
 import com.spotify.docker.client.messages.ContainerConfig;
@@ -32,19 +33,27 @@ public class Server {
         DockerConnectImpl currentDockerConnector =  new DockerConnectImpl();
         DockerClient docker = currentDockerConnector.setConnection();
 
+        //User
+        if (args.length <= 0){
+            System.out.println("Usage jar [user]");
+            System.exit(0);
+        }
+        final String user = args[0];
+
         final ServerSendFileProto server = new ServerSendFileProto();
-        server.start();
+        server.start(user);
         server.blockUntilShutdown();
         System.out.println("----RESTORE REATTIVA----");
 
 
 
         /**-----REACTIVE-----**/
-        /*Instant start = Instant.now();
-        restore(docker, "dbdata");
+        Instant start = Instant.now();
+        restore(docker, "dbdata", user);
         Instant stop = Instant.now();
         System.out.println("DURATION: restore REACTIVE APPLICATION AGNOSTIC "  + Duration.between(start, stop));
-        currentDockerConnector.close();*/
+        currentDockerConnector.close();
+
 
         /*---RESTORE DUMP UNICO----*/
         /*Instant start = Instant.now();
@@ -55,7 +64,7 @@ public class Server {
         System.out.println("DURATION: restore REACTIVE APPLICATION AGNOSTIC "  + Duration.between(start, stop));*/
 
         /*----RESTORE---*/
-        var hash = ServerSendFileProto.getHashCollections();
+        /*var hash = ServerSendFileProto.getHashCollections();
 
         //Restart server
         server.start();
@@ -90,7 +99,7 @@ public class Server {
         System.out.println("FILENAME "  + filename);
         restore(filename, residual);
         stop = Instant.now();
-        System.out.println("DURATION: restore after handoff "  + Duration.between(start, stop));
+        System.out.println("DURATION: restore after handoff "  + Duration.between(start, stop));*/
 
 
 
@@ -116,31 +125,40 @@ public class Server {
         */
 
         //Restart server
-        server.start();
-        server.blockUntilShutdown();
+        //server.start();
+        //server.blockUntilShutdown();
 
         /*---CHECK HASH---*/
         //var hashcollections = ServerSendFileProto.getHashCollections();
         start = Instant.now();
-        checkHash(hash, hashrestore);
+        //checkHash(hash, hashrestore);
         stop = Instant.now();
-        System.out.println("DURATION: checkHash Procedure "  + Duration.between(start, stop));
+        //System.out.println("DURATION: checkHash Procedure "  + Duration.between(start, stop));
 
         //Restart server
-        server.start();
-        server.blockUntilShutdown();
+        //server.start();
+        //server.blockUntilShutdown();
 
         start = Instant.now();
-        filename = ServerSendFileProto.getFilename();
-        System.out.println("FILENAME "  + filename);
-        restore(filename);
+        //filename = ServerSendFileProto.getFilename();
+        //System.out.println("FILENAME "  + filename);
+        //restore(filename);
         stop = Instant.now();
-        System.out.println("DURATION: restore miss "  + Duration.between(start, stop));
+        //System.out.println("DURATION: restore miss "  + Duration.between(start, stop));
 
+        /*----START DOWNSTREAM------*/
+        String userpath = "/home/" + user + "/rec";
+        String currentUsersHomeDir = Paths.get(userpath).toAbsolutePath().normalize().toString();
+        System.out.println("USER PATH: " + currentUsersHomeDir);
+        Process process = Runtime.getRuntime().exec(new String[]{"sh", currentUsersHomeDir + "/ping-reply.sh"});
+        //process.waitFor();
+        System.out.println("PING STARTED - PROCESS ID: " + process.pid());
+
+        System.exit(0);
 
     }
 
-    /*private static void restore(Map<String, String> restore) throws InterruptedException, IOException {
+    private static void restore(Map<String, String> restore) throws InterruptedException, IOException {
 
         for (var set : restore.entrySet()) {
             System.out.println("Restore collection " + set.getKey());
@@ -149,7 +167,7 @@ public class Server {
             //System.out.println("Restore finished");
         }
 
-    }*/
+    }
 
     private static void restore(String filename) throws InterruptedException, IOException {
 
@@ -213,44 +231,29 @@ public class Server {
 
     }
 
-    private static void restore(DockerClient docker, String volumesFrom) throws DockerException, InterruptedException, ExecutionException {
+    private static void restore(DockerClient docker, String volumesFrom, String user) throws DockerException, InterruptedException, ExecutionException {
         //Pull latest ubuntu images from docker hub
         docker.pull("busybox:latest");
-        final String currentUsersHomeDir = "/home/alarm";
+        String userpath = "/home/" + user + "/rec";
+        String currentUsersHomeDir = Paths.get(userpath + "/knowledge1").toAbsolutePath().normalize().toString();
 
         HostConfig hostConfig = HostConfig.builder()
                 .autoRemove(Boolean.TRUE)
-                .volumesFrom(volumesFrom)
-                .binds(HostConfig.Bind.from(currentUsersHomeDir).to("/backup").build())
+                .binds(new HostConfig.Bind[] { HostConfig.Bind.from(currentUsersHomeDir).to("/backup").build() })
                 .build();
 
-        //Configuration of Container Data Volume
-        final ContainerConfig containerConfig = ContainerConfig.builder()
-                .image("busybox")
-                .hostConfig(hostConfig)
-                .cmd("tar", "xvf", "/backup/backup.tar")
-                .build();
+        final ContainerConfig containerConfig = ContainerConfig.builder().image("busybox").hostConfig(hostConfig).cmd(new String[] { "tar", "xvf", "/backup/backup1.tar" }).build();
 
-        //Create Container Data Volume
+
         final ContainerCreation container = docker.createContainer(containerConfig, "dbBackup");
-
         docker.startContainer(container.id());
 
-        Callable<ContainerExit> task = () -> {
-            try {
-                return docker.waitContainer(container.id());
-            }
-            catch (InterruptedException e) {
-                throw new IllegalStateException("task interrupted", e);
-            }
-        };
+        try{
+            docker.waitContainer(container.id());
+        } catch (ContainerNotFoundException e){
+            System.out.println("Container exit!");
+        }
 
-        ExecutorService executor = Executors.newFixedThreadPool(1);
-        Future<ContainerExit> future = executor.submit(task);
-
-        ContainerExit result = future.get();
-
-        System.out.println(result.statusCode());
     }
 
     private static void checkHash(Map<String, String> hash, Map<String, String> hashcollections){

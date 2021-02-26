@@ -27,7 +27,7 @@
               <transformers>
                 <transformer>
                   <manifestEntries>
-                    <Main-Class>it.unibo.scotece.domenico.Program</Main-Class>
+                    <Main-Class>it.unibo.scotece.domenico.Server</Main-Class>
                     <Build-Number>1</Build-Number>
                   </manifestEntries>
                 </transformer>
